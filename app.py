@@ -40,7 +40,7 @@ DIAGRAM_DIR = ASSETS / "diagrams" # diagram/flow/wiring
 # =======================
 # LIVE SYSTEM
 # =======================
-BLYNK_TOKEN = "HBV4glfmRrg7jhpsRHFnu2cnRM2TebZK"
+BLYNK_TOKEN = st.secrets["BLYNK_TOKEN"]
 BASE_URL = "https://blynk.cloud/external/api/get"
 MODEL_PATH = Path("models/model_30s.pkl")
 
@@ -902,3 +902,4 @@ st.markdown(
 if auto_refresh and page in ["Live Dashboard", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
+
