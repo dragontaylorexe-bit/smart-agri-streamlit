@@ -19,7 +19,6 @@ ORG_LINE = "College of Engineering and Computer Science • VinUniversity"
 ADDRESS_LINE = "Vinhomes Ocean Park, Gia Lam District, Hanoi, Vietnam"
 COURSE_LINE = "Course: Introduction to Engineering and Computer Science"
 
-
 AUTHORS = [
     ("Pham Gia Hung", "V202502278", "Hardware Specialist"),
     ("Le Tri Duc", "V202502315", "Software & Algorithm Developer"),
@@ -30,17 +29,20 @@ AUTHORS = [
 
 ASSETS = Path("assets")
 LOGO_PATH = ASSETS / "vinuni_logo.png"
-# Bạn có thể dùng .png, .jpg, .jpeg → code tự nhận mime
 HERO_CANDIDATES = [ASSETS / "hero.jpg", ASSETS / "hero.jpeg", ASSETS / "hero.png", ASSETS / "hero.webp"]
 REPORT_PATH = ASSETS / "report.pdf"
 
-MEDIA_DIR = ASSETS / "media"      # ảnh đẹp (rover/team/testing)
-DIAGRAM_DIR = ASSETS / "diagrams" # diagram/flow/wiring
+MEDIA_DIR = ASSETS / "media"
+DIAGRAM_DIR = ASSETS / "diagrams"
 
 # =======================
 # LIVE SYSTEM
 # =======================
-BLYNK_TOKEN = st.secrets["BLYNK_TOKEN"]
+BLYNK_TOKEN = st.secrets.get("BLYNK_TOKEN", "")
+if not BLYNK_TOKEN:
+    st.error("Missing BLYNK_TOKEN in Streamlit Secrets. Go to Manage app → Settings → Secrets and set BLYNK_TOKEN.")
+    st.stop()
+
 BASE_URL = "https://blynk.cloud/external/api/get"
 MODEL_PATH = Path("models/model_30s.pkl")
 
@@ -48,8 +50,8 @@ FEATURES = ["temp", "humidity", "soil", "ph"]
 PINS = {"temp": "V0", "soil": "V1", "ph": "V2", "humidity": "V3"}
 
 LABELS = {"temp": "Temperature", "humidity": "Humidity", "soil": "Soil Moisture", "ph": "pH"}
-ICONS  = {"temp": "🌡️", "humidity": "💧", "soil": "🌱", "ph": "🧪"}
-UNITS  = {"temp": "°C", "humidity": "%", "soil": "%", "ph": ""}
+ICONS = {"temp": "🌡️", "humidity": "💧", "soil": "🌱", "ph": "🧪"}
+UNITS = {"temp": "°C", "humidity": "%", "soil": "%", "ph": ""}
 
 RANGE = {
     "temp": (0.0, 60.0),
@@ -58,11 +60,23 @@ RANGE = {
     "ph": (0.0, 14.0),
 }
 
+# "No clear change" thresholds (tune if needed)
+NOISE = {
+    "temp": {"range": 0.6, "delta": 0.4},      # °C
+    "humidity": {"range": 3.5, "delta": 2.0},  # %RH
+    "soil": {"range": 2.5, "delta": 1.5},      # %
+    "ph": {"range": 0.12, "delta": 0.08},      # pH
+}
+
 # =======================
 # PAGE CONFIG
 # =======================
-st.set_page_config(page_title="Smart Agri-Tech Mobility System (VinUniversity)",
-                   page_icon="🌱", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Smart Agri-Tech Mobility System (VinUniversity)",
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # =======================
 # UTIL: files & images
@@ -98,27 +112,39 @@ hero_b64, hero_mime = file_to_b64(HERO_PATH) if HERO_PATH else (None, None)
 logo_b64, logo_mime = file_to_b64(LOGO_PATH)
 
 # =======================
-# VIBRANT CSS (nổi bật hơn)
+# UI (CSS)
 # =======================
 CSS = f"""
 <style>
 :root {{
-  --accent1: #7C3AED;  /* violet */
-  --accent2: #06B6D4;  /* cyan */
-  --accent3: #22C55E;  /* green */
-  --accent4: #F97316;  /* orange */
+  --accent1: #7C3AED;
+  --accent2: #06B6D4;
+  --accent3: #22C55E;
+  --accent4: #F97316;
   --ink: rgba(10, 10, 10, 0.92);
-  --muted: rgba(10, 10, 10, 0.62);
   --card: rgba(255,255,255,0.78);
   --border: rgba(0,0,0,0.08);
+}}
+
+.delta-up   {{ color: #EF4444; font-weight: 950; }}
+.delta-down {{ color: #22C55E; font-weight: 950; }}
+.delta-flat {{ color: rgba(0,0,0,0.55); font-weight: 900; }}
+
+.trend-up   {{ background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.22); }}
+.trend-down {{ background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.22); }}
+.trend-flat {{ background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.10); }}
+
+.kpi-line {{
+  padding: 10px 12px;
+  border-radius: 14px;
+  margin-top: 10px;
 }}
 
 .stApp {{
   background:
     radial-gradient(1200px 800px at 12% 0%, rgba(124,58,237,0.20), transparent 55%),
     radial-gradient(1200px 800px at 88% 0%, rgba(6,182,212,0.18), transparent 55%),
-    radial-gradient(1200px 800px at 50% 100%, rgba(34,197,94,0.12), transparent 55%),
-    linear-gradient(180deg, rgba(250,250,255,0.0), rgba(250,250,255,0.0));
+    radial-gradient(1200px 800px at 50% 100%, rgba(34,197,94,0.12), transparent 55%);
 }}
 
 header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
@@ -214,8 +240,6 @@ header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
   backdrop-filter: blur(12px);
   box-shadow: 0 12px 34px rgba(0,0,0,0.07);
 }}
-.section h3 {{ margin: 0 0 8px 0; color: var(--ink); }}
-.section p, .section li {{ color: rgba(0,0,0,0.70); }}
 
 .grid4 {{
   display:grid;
@@ -233,11 +257,6 @@ header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
   background: rgba(255,255,255,0.82);
   backdrop-filter: blur(12px);
   box-shadow: 0 14px 40px rgba(0,0,0,0.08);
-  transition: transform .18s ease, box-shadow .18s ease;
-}}
-.card:hover {{
-  transform: translateY(-3px);
-  box-shadow: 0 22px 60px rgba(0,0,0,0.12);
 }}
 .card-top {{
   display:flex;
@@ -245,20 +264,9 @@ header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
   align-items:center;
   gap: 10px;
 }}
-.card-name {{
-  font-weight: 950;
-  opacity: 0.94;
-}}
-.card-value {{
-  font-size: 32px;
-  font-weight: 950;
-  margin-top: 6px;
-}}
-.card-delta {{
-  font-weight: 900;
-  margin-top: 6px;
-  font-size: 13px;
-}}
+.card-name {{ font-weight: 950; opacity: 0.94; }}
+.card-value {{ font-size: 32px; font-weight: 950; margin-top: 6px; }}
+.card-delta {{ font-weight: 900; margin-top: 6px; font-size: 13px; }}
 .card-hint {{
   margin-top: 6px;
   font-size: 12px;
@@ -276,7 +284,6 @@ header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
   font-weight: 950;
   border: 1px solid var(--border);
 }}
-
 .level-ok   {{ background: rgba(34,197,94,0.16);  color:#15803D; }}
 .level-warm {{ background: rgba(249,115,22,0.16); color:#9A3412; }}
 .level-hot  {{ background: rgba(239,68,68,0.16);  color:#B91C1C; }}
@@ -304,11 +311,12 @@ header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
 
 .diagram-img {{
   width:100%;
-  max-height: 520px;     /* FIX: không quá to */
-  object-fit: contain;   /* FIX: giữ tỉ lệ */
+  max-height: 520px;
+  object-fit: contain;
   display:block;
   background: rgba(0,0,0,0.03);
 }}
+
 .footer {{
   margin-top: 18px;
   padding: 10px 14px;
@@ -318,6 +326,7 @@ header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
   color: rgba(0,0,0,0.62);
   font-size: 12px;
 }}
+
 hr {{ border:none; border-top:1px solid var(--border); margin:16px 0; }}
 </style>
 """
@@ -355,7 +364,7 @@ def read_sensors() -> dict:
 @st.cache_resource
 def load_bundle():
     if not MODEL_PATH.exists():
-        raise FileNotFoundError("Model not found. Run train.py to create models/model_30s.pkl")
+        raise FileNotFoundError("Model not found. Ensure models/model_30s.pkl is in the repo.")
     bundle = joblib.load(MODEL_PATH)
     if bundle.get("features") != FEATURES:
         raise ValueError(f"FEATURES mismatch. Model={bundle.get('features')} App={FEATURES}")
@@ -369,7 +378,6 @@ def level_temp(t: float, ideal_min: float, ideal_max: float, margin: float):
     return "hot", "Too Hot"
 
 def level_humidity(h: float, low: float, high: float, margin: float):
-    # below low = dry air; above high = too humid
     if h < low - margin: return "cold", "Too Dry"
     if h < low:          return "cold", "Slightly Dry"
     if h <= high:        return "ok",   "Comfort"
@@ -443,6 +451,93 @@ def pdf_embed(path: Path, height=900):
         unsafe_allow_html=True
     )
 
+# --- highlight helpers for narrative ---
+def delta_class(delta: float, thr: float) -> str:
+    if abs(delta) <= thr:
+        return "delta-flat"
+    return "delta-up" if delta > 0 else "delta-down"
+
+def trend_box_class(delta: float, thr: float) -> str:
+    if abs(delta) <= thr:
+        return "trend-flat"
+    return "trend-up" if delta > 0 else "trend-down"
+
+def arrow(delta: float, thr: float) -> str:
+    if abs(delta) <= thr:
+        return "→"
+    return "↑" if delta > 0 else "↓"
+
+def describe_last_window(
+    name: str,
+    w: pd.Series,
+    current_val: float,
+    pred_val: float | None,
+    target_low: float,
+    target_high: float,
+    margin: float,
+    unit: str
+) -> tuple[str, str]:
+    """
+    Returns: (level, html_block)
+    """
+    w = w.dropna()
+    if len(w) < 2:
+        return "cold", f"<p>Not enough samples in the last 30 seconds to analyze {LABELS[name].lower()}.</p>"
+
+    start = float(w.iloc[0])
+    end = float(w.iloc[-1])
+    d = end - start
+    r = float(w.max() - w.min())
+
+    delta_thr = NOISE[name]["delta"]
+    range_thr = NOISE[name]["range"]
+
+    if r <= range_thr and abs(d) <= delta_thr:
+        trend_word = "stable (no clear change)"
+    elif abs(d) <= delta_thr and r > range_thr:
+        trend_word = "fluctuating (no clear direction)"
+    elif d > delta_thr:
+        trend_word = "increasing"
+    else:
+        trend_word = "decreasing"
+
+    # status level + tag
+    if name == "temp":
+        lvl, tag = level_temp(current_val, target_low, target_high, margin)
+    elif name == "humidity":
+        lvl, tag = level_humidity(current_val, target_low, target_high, margin)
+    elif name == "soil":
+        lvl, tag = level_soil(current_val, target_low, target_high, margin)
+    else:
+        lvl, tag = level_ph(current_val, target_low, target_high, margin)
+
+    in_band = (target_low <= current_val <= target_high)
+    band_word = "within the target range" if in_band else "outside the target range"
+
+    d_cls = delta_class(d, delta_thr)
+    box_cls = trend_box_class(d, delta_thr)
+    sym = arrow(d, delta_thr)
+
+    forecast_clause = ""
+    if pred_val is not None and np.isfinite(pred_val):
+        forecast_clause = f" <span style='color:rgba(0,0,0,0.55);font-weight:800;'>Forecast (~30s):</span> <b>{pred_val:.2f}{unit}</b>."
+
+    html = f"""
+<div class="kpi-line {box_cls}">
+  <div style="font-weight:950;color:rgba(0,0,0,0.86);">
+    Over the last 30 seconds, <b>{LABELS[name]}</b> was <b>{trend_word}</b> {sym}.
+  </div>
+  <div style="margin-top:6px;color:rgba(0,0,0,0.70);line-height:1.45;">
+    Δ=<span class="{d_cls}">{d:+.2f}{unit} {sym}</span>,
+    range=<b>{r:.2f}{unit}</b>.
+    Current: <b>{current_val:.2f}{unit}</b> ({tag}), {band_word}
+    (<b>{target_low:.2f}–{target_high:.2f}{unit}</b>).
+    {forecast_clause}
+  </div>
+</div>
+"""
+    return lvl, html
+
 # =======================
 # SIDEBAR NAV + THRESHOLDS
 # =======================
@@ -455,9 +550,8 @@ page = st.sidebar.selectbox(
 st.sidebar.markdown("---")
 st.sidebar.subheader("Live Controls")
 auto_refresh = st.sidebar.toggle("Auto refresh (Live)", value=True)
-refresh_sec  = st.sidebar.slider("Refresh seconds", 2, 15, 5, 1)
-history_len  = st.sidebar.slider("Trend history points", 30, 600, 200, 10)
-show_debug   = st.sidebar.toggle("Show debug", value=False)
+refresh_sec = st.sidebar.slider("Refresh seconds", 2, 15, 5, 1)
+history_len = st.sidebar.slider("Trend history points", 30, 600, 200, 10)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Targets / Thresholds")
@@ -496,16 +590,16 @@ if st.session_state.history.maxlen != history_len:
     st.session_state.history = deque(list(st.session_state.history)[-history_len:], maxlen=history_len)
 
 # =======================
-# HERO (FIX: luôn hiện)
+# HERO
 # =======================
 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-logo_html = f"<img class='brand-logo' src='data:{logo_mime};base64,{logo_b64}'/>" if logo_b64 else "<div class='brand-logo' style='display:flex;align-items:center;justify-content:center;font-weight:950;'>VU</div>"
+logo_html = (
+    f"<img class='brand-logo' src='data:{logo_mime};base64,{logo_b64}'/>"
+    if logo_b64 else
+    "<div class='brand-logo' style='display:flex;align-items:center;justify-content:center;font-weight:950;'>VU</div>"
+)
 
-hero_bg = ""
-if hero_b64:
-    hero_bg = f"<img class='hero-img' src='data:{hero_mime};base64,{hero_b64}' />"
-else:
-    hero_bg = "<div class='hero-fallback'></div>"
+hero_bg = f"<img class='hero-img' src='data:{hero_mime};base64,{hero_b64}' />" if hero_b64 else "<div class='hero-fallback'></div>"
 
 st.markdown(
     f"""
@@ -541,7 +635,6 @@ st.markdown(
 """,
     unsafe_allow_html=True
 )
-
 st.write("")
 
 # =======================
@@ -601,11 +694,11 @@ def page_home():
         st.markdown(
             """
 <div class="section">
-  <div class="tag level-warm">● For Professors</div>
-  <h3 style="margin-top:10px;">What to check</h3>
+  <div class="tag level-warm">● For Reviewers</div>
+  <h3 style="margin-top:10px;">What to explore</h3>
   <ul>
     <li><b>Live Dashboard</b>: real-time values + 30s prediction</li>
-    <li><b>Deep Analysis</b>: detailed interpretation per metric</li>
+    <li><b>Deep Analysis</b>: 30s narrative summary + detailed interpretation</li>
     <li><b>Architecture</b>: system pipeline + diagrams</li>
     <li><b>Report</b>: full PDF embedded for verification</li>
   </ul>
@@ -623,7 +716,6 @@ def page_live_dashboard():
 
     prev = st.session_state.history[-2] if len(st.session_state.history) >= 2 else None
 
-    # CURRENT
     st.markdown("#### Live (Current)")
     st.markdown("<div class='grid4'>", unsafe_allow_html=True)
 
@@ -656,7 +748,6 @@ def page_live_dashboard():
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<hr/>", unsafe_allow_html=True)
 
-    # PRED
     st.markdown("#### AI Prediction (~30s later)")
     if pred_map is None:
         st.info(f"Collecting window… ({len(st.session_state.pred_buffer)}/{WINDOW_STEPS})")
@@ -676,22 +767,21 @@ def page_live_dashboard():
                 lvl, tag = level_ph(pv, low_p, high_p, margin_p)
 
             dtext = f"Δ {delta_fmt(name, pv - cv)} (pred - now)" if cv is not None else None
-            st.markdown(card_html(ICONS[name], f"{LABELS[name]} →", fmt(name, pv), lvl, tag, dtext, "Forecast horizon: ~30s"), unsafe_allow_html=True)
+            st.markdown(card_html(ICONS[name], f"{LABELS[name]} →", fmt(name, pv), lvl, tag, dtext, "Forecast horizon: ~30s"),
+                        unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<hr/>", unsafe_allow_html=True)
-
-    # Trends
     st.subheader("Trends")
     if len(st.session_state.history) >= 5:
         df = pd.DataFrame(list(st.session_state.history)).set_index("ts")
         a, b = st.columns(2)
         with a:
             st.caption("Temperature & Humidity")
-            st.line_chart(df[["temp", "humidity"]])
+            st.line_chart(df[["temp", "humidity"]].tail(80))
         with b:
             st.caption("Soil Moisture & pH")
-            st.line_chart(df[["soil", "ph"]])
+            st.line_chart(df[["soil", "ph"]].tail(80))
     else:
         st.info("Not enough data points yet. Keep the dashboard running.")
 
@@ -707,6 +797,75 @@ def page_deep_analysis():
     prev = df.iloc[-2] if len(df) >= 2 else last
     window = df.tail(min(20, len(df)))
 
+    # ===== Narrative summary (Last 30 seconds) + highlight =====
+    end_ts = df.index[-1]
+    last30 = df[df.index >= (end_ts - pd.Timedelta(seconds=30))]
+
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.subheader("Narrative Summary (Last 30 seconds)")
+
+    if len(last30) < 2:
+        st.info("Not enough samples in the last 30 seconds yet. Keep the app running a bit longer.")
+    else:
+        targets = {
+            "temp": (ideal_min_t, ideal_max_t, margin_t, "°C"),
+            "humidity": (low_h, high_h, margin_h, "%"),
+            "soil": (low_s, high_s, margin_s, "%"),
+            "ph": (low_p, high_p, margin_p, ""),
+        }
+        severities = {"ok": 0, "warm": 1, "cold": 1, "hot": 2}
+        worst_lvl = "ok"
+        worst_name = None
+
+        for name in FEATURES:
+            low, high, m, unit = targets[name]
+            curv = float(last[name])
+            pv = float(pred_map[name]) if pred_map and name in pred_map else None
+
+            lvl, html = describe_last_window(
+                name=name,
+                w=last30[name],
+                current_val=curv,
+                pred_val=pv,
+                target_low=low,
+                target_high=high,
+                margin=m,
+                unit=unit
+            )
+
+            if severities[lvl] > severities[worst_lvl]:
+                worst_lvl = lvl
+                worst_name = name
+
+            st.markdown(
+                f"""
+<div class="section">
+  <div class="tag level-{lvl}">● {LABELS[name]}</div>
+  {html}
+</div>
+""",
+                unsafe_allow_html=True
+            )
+
+        if worst_name is None:
+            overall = "Overall, conditions were stable over the last 30 seconds with no major deviations."
+        else:
+            overall = (
+                f"Overall, the most notable issue in the last 30 seconds is <b>{LABELS[worst_name]}</b>, "
+                f"currently flagged as <b>{worst_lvl.upper()}</b>. Please check the recommended actions below."
+            )
+
+        st.markdown(
+            f"""
+<div class="section">
+  <div class="tag level-{worst_lvl}">● Overall Conclusion</div>
+  <h3 style="margin-top:10px;">Conclusion</h3>
+  <p>{overall}</p>
+</div>
+""",
+            unsafe_allow_html=True
+        )
+
     # helper: trend slope approx (per sample)
     def slope(series):
         if len(series) < 3:
@@ -716,7 +875,6 @@ def page_deep_analysis():
         m = np.polyfit(x, y, 1)[0]
         return float(m)
 
-    # Compute per metric insight
     insights = []
 
     # Temperature
@@ -732,11 +890,8 @@ def page_deep_analysis():
         t_actions += ["Reduce drafts", "Water during warmer periods", "Check if crop requires heating"]
     else:
         t_actions += ["Maintain current settings", "Monitor trend for sudden changes"]
-
     if pred_map:
-        t_pred = float(pred_map["temp"])
-        t_actions += [f"30s forecast: {t_pred:.2f}°C → prepare adjustment if crossing thresholds."]
-
+        t_actions += [f"30s forecast: {float(pred_map['temp']):.2f}°C → prepare adjustment if crossing thresholds."]
     insights.append(("Temperature", t_lvl, t_summary, t_actions))
 
     # Humidity
@@ -749,7 +904,7 @@ def page_deep_analysis():
     if h_lvl in ["hot", "warm"]:
         h_actions += ["Increase airflow to reduce condensation risk", "Inspect for wet surfaces / mold risk", "Avoid over-watering"]
     elif h_lvl == "cold":
-        h_actions += ["Consider misting (if crop requires)", "Reduce excessive ventilation if drying too fast"]
+        h_actions += ["Consider misting (crop-dependent)", "Reduce excessive ventilation if drying too fast"]
     else:
         h_actions += ["Keep stable environment", "Watch for rapid drops (door open / wind)"]
     if pred_map:
@@ -763,9 +918,9 @@ def page_deep_analysis():
     s_lvl, s_tag = level_soil(s, low_s, high_s, margin_s)
     s_summary = f"Soil moisture is {s:.2f}% ({s_tag}). Δ={s_delta:+.2f}% vs previous. Trend slope≈{s_slope:+.3f} per sample."
     s_actions = []
-    if s_lvl in ["hot", "warm"]:  # dry
+    if s_lvl in ["hot", "warm"]:
         s_actions += ["Water/irrigate gradually", "Re-check after 1–2 minutes", "Avoid sudden flooding to prevent root shock"]
-    else:  # wet
+    else:
         s_actions += ["Reduce watering", "Improve drainage/airflow", "Watch pH drift due to excess water"]
     if pred_map:
         s_actions += [f"30s forecast: {float(pred_map['soil']):.2f}%."]
@@ -778,25 +933,26 @@ def page_deep_analysis():
     p_lvl, p_tag = level_ph(p, low_p, high_p, margin_p)
     p_summary = f"pH is {p:.2f} ({p_tag}). Δ={p_delta:+.2f} vs previous. Trend slope≈{p_slope:+.3f} per sample."
     p_actions = []
-    if p_lvl == "warm":  # acidic
+    if p_lvl == "warm":
         p_actions += ["If persistent: consider liming (context-dependent)", "Recalibrate probe / ensure proper warm-up", "Compare with reference buffer if available"]
-    elif p_lvl == "cold":  # alkaline
-        p_actions += ["If persistent: consider acidifying amendments (context-dependent)", "Re-check measurement after probe stabilization", "Avoid over-correction"]
+    elif p_lvl == "cold":
+        p_actions += ["If persistent: consider acidifying amendments (context-dependent)", "Re-check after probe stabilization", "Avoid over-correction"]
     else:
         p_actions += ["Within target band; keep monitoring", "Ensure probe is stable (warm-up ~30s)"]
     if pred_map:
         p_actions += [f"30s forecast: {float(pred_map['ph']):.2f}."]
     insights.append(("pH", p_lvl, p_summary, p_actions))
 
-    # Render insights
+    st.markdown("<hr/>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
+        st.caption("Temperature & Humidity")
         st.line_chart(df[["temp", "humidity"]].tail(80))
     with c2:
+        st.caption("Soil Moisture & pH")
         st.line_chart(df[["soil", "ph"]].tail(80))
 
     st.markdown("<hr/>", unsafe_allow_html=True)
-
     for name, lvl, summary, actions in insights:
         st.markdown(insight_block(name, lvl, summary, actions), unsafe_allow_html=True)
 
@@ -820,9 +976,7 @@ def page_architecture():
 """,
         unsafe_allow_html=True
     )
-
     st.write("")
-    # FIX: diagram sizing & layout
     render_diagram(DIAGRAM_DIR / "flow.png", "Operational Flow / Control Flow")
     st.write("")
     render_diagram(DIAGRAM_DIR / "architecture.png", "System Architecture")
@@ -902,153 +1056,3 @@ st.markdown(
 if auto_refresh and page in ["Live Dashboard", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
-# "No clear change" thresholds (tune if needed)
-NOISE = {
-    "temp": {"range": 0.6, "delta": 0.4},      # °C (DHT21 ~±0.5°C)
-    "humidity": {"range": 3.5, "delta": 2.0},  # %RH (DHT21 ~±3%RH)
-    "soil": {"range": 2.5, "delta": 1.5},      # % (typical analog noise)
-    "ph": {"range": 0.12, "delta": 0.08},      # pH (probe drift/noise)
-}
-def describe_last_window(name: str, w: pd.Series, current_val: float, pred_val: float | None,
-                         target_low: float, target_high: float, margin: float,
-                         unit: str) -> tuple[str, str]:
-    """
-    Returns: (level, narrative_sentence)
-    level is one of: ok/warm/hot/cold (for badge styling)
-    """
-    w = w.dropna()
-    if len(w) < 2:
-        return "cold", f"Not enough samples in the last 30 seconds to analyze {LABELS[name].lower()}."
-
-    start = float(w.iloc[0])
-    end = float(w.iloc[-1])
-    d = end - start
-    r = float(w.max() - w.min())
-
-    # trend classification using thresholds
-    delta_thr = NOISE[name]["delta"]
-    range_thr = NOISE[name]["range"]
-
-    if r <= range_thr and abs(d) <= delta_thr:
-        trend_word = "stable with no clear change"
-    elif abs(d) <= delta_thr and r > range_thr:
-        trend_word = "fluctuating but without a clear direction"
-    elif d > delta_thr:
-        trend_word = "increasing"
-    else:
-        trend_word = "decreasing"
-
-    # in/out target
-    in_band = (current_val >= target_low) and (current_val <= target_high)
-    if in_band:
-        band_word = "within the target range"
-    else:
-        band_word = "outside the target range"
-
-    # badge level
-    # use your existing level functions (temp/humidity/soil/ph)
-    if name == "temp":
-        lvl, tag = level_temp(current_val, target_low, target_high, margin)
-    elif name == "humidity":
-        lvl, tag = level_humidity(current_val, target_low, target_high, margin)
-    elif name == "soil":
-        lvl, tag = level_soil(current_val, target_low, target_high, margin)
-    else:
-        lvl, tag = level_ph(current_val, target_low, target_high, margin)
-
-    # forecast clause
-    forecast_clause = ""
-    if pred_val is not None and np.isfinite(pred_val):
-        forecast_clause = f" Forecast (~30s): {pred_val:.2f}{unit}."
-
-    # final sentence
-    # Example: "Over the last 30 seconds, humidity was stable... fluctuating within 1.2% ... Current is 55% (Comfort)..."
-    sentence = (
-        f"Over the last 30 seconds, {LABELS[name].lower()} was **{trend_word}**, "
-        f"varying within **{r:.2f}{unit}** (Δ={d:+.2f}{unit}). "
-        f"Current: **{current_val:.2f}{unit}** ({tag}), {band_word} "
-        f"({target_low:.2f}–{target_high:.2f}{unit})."
-        f"{forecast_clause}"
-    )
-
-    return lvl, sentence
-    # ===== Narrative summary for last 30 seconds =====
-    end_ts = df.index[-1]
-    last30 = df[df.index >= (end_ts - pd.Timedelta(seconds=30))]
-
-    st.markdown("<hr/>", unsafe_allow_html=True)
-    st.subheader("Narrative Summary (Last 30 seconds)")
-
-    if len(last30) < 2:
-        st.info("Not enough samples in the last 30 seconds yet. Keep the app running a bit longer.")
-    else:
-        # Build per-metric narrative
-        narratives = []
-        severities = {"ok": 0, "warm": 1, "cold": 1, "hot": 2}
-
-        # targets for each metric
-        targets = {
-            "temp": (ideal_min_t, ideal_max_t, margin_t, "°C"),
-            "humidity": (low_h, high_h, margin_h, "%"),
-            "soil": (low_s, high_s, margin_s, "%"),
-            "ph": (low_p, high_p, margin_p, ""),
-        }
-
-        worst_lvl = "ok"
-        worst_name = None
-
-        for name in FEATURES:
-            low, high, m, unit = targets[name]
-            curv = float(last[name])
-            pv = float(pred_map[name]) if pred_map and name in pred_map else None
-
-            lvl, sent = describe_last_window(
-                name=name,
-                w=last30[name],
-                current_val=curv,
-                pred_val=pv,
-                target_low=low,
-                target_high=high,
-                margin=m,
-                unit=unit
-            )
-            narratives.append((lvl, name, sent))
-
-            if severities[lvl] > severities[worst_lvl]:
-                worst_lvl = lvl
-                worst_name = name
-
-        # Render narratives
-        for lvl, name, sent in narratives:
-            st.markdown(
-                f"""
-<div class="section">
-  <div class="tag level-{lvl}">● {LABELS[name]}</div>
-  <p style="margin-top:10px;">{sent}</p>
-</div>
-""",
-                unsafe_allow_html=True
-            )
-
-        # Overall conclusion line
-        if worst_name is None:
-            overall = "Overall, conditions were stable over the last 30 seconds with no major deviations."
-        else:
-            overall = (
-                f"Overall, the most notable issue in the last 30 seconds is **{LABELS[worst_name]}**, "
-                f"which is currently flagged as **{worst_lvl.upper()}**. "
-                f"Please check the recommended actions in the insight sections below."
-            )
-
-        st.markdown(
-            f"""
-<div class="section">
-  <div class="tag level-{worst_lvl}">● Overall Conclusion</div>
-  <h3 style="margin-top:10px;">Conclusion</h3>
-  <p>{overall}</p>
-</div>
-""",
-            unsafe_allow_html=True
-        )
-
-
