@@ -902,4 +902,153 @@ st.markdown(
 if auto_refresh and page in ["Live Dashboard", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
+# "No clear change" thresholds (tune if needed)
+NOISE = {
+    "temp": {"range": 0.6, "delta": 0.4},      # °C (DHT21 ~±0.5°C)
+    "humidity": {"range": 3.5, "delta": 2.0},  # %RH (DHT21 ~±3%RH)
+    "soil": {"range": 2.5, "delta": 1.5},      # % (typical analog noise)
+    "ph": {"range": 0.12, "delta": 0.08},      # pH (probe drift/noise)
+}
+def describe_last_window(name: str, w: pd.Series, current_val: float, pred_val: float | None,
+                         target_low: float, target_high: float, margin: float,
+                         unit: str) -> tuple[str, str]:
+    """
+    Returns: (level, narrative_sentence)
+    level is one of: ok/warm/hot/cold (for badge styling)
+    """
+    w = w.dropna()
+    if len(w) < 2:
+        return "cold", f"Not enough samples in the last 30 seconds to analyze {LABELS[name].lower()}."
+
+    start = float(w.iloc[0])
+    end = float(w.iloc[-1])
+    d = end - start
+    r = float(w.max() - w.min())
+
+    # trend classification using thresholds
+    delta_thr = NOISE[name]["delta"]
+    range_thr = NOISE[name]["range"]
+
+    if r <= range_thr and abs(d) <= delta_thr:
+        trend_word = "stable with no clear change"
+    elif abs(d) <= delta_thr and r > range_thr:
+        trend_word = "fluctuating but without a clear direction"
+    elif d > delta_thr:
+        trend_word = "increasing"
+    else:
+        trend_word = "decreasing"
+
+    # in/out target
+    in_band = (current_val >= target_low) and (current_val <= target_high)
+    if in_band:
+        band_word = "within the target range"
+    else:
+        band_word = "outside the target range"
+
+    # badge level
+    # use your existing level functions (temp/humidity/soil/ph)
+    if name == "temp":
+        lvl, tag = level_temp(current_val, target_low, target_high, margin)
+    elif name == "humidity":
+        lvl, tag = level_humidity(current_val, target_low, target_high, margin)
+    elif name == "soil":
+        lvl, tag = level_soil(current_val, target_low, target_high, margin)
+    else:
+        lvl, tag = level_ph(current_val, target_low, target_high, margin)
+
+    # forecast clause
+    forecast_clause = ""
+    if pred_val is not None and np.isfinite(pred_val):
+        forecast_clause = f" Forecast (~30s): {pred_val:.2f}{unit}."
+
+    # final sentence
+    # Example: "Over the last 30 seconds, humidity was stable... fluctuating within 1.2% ... Current is 55% (Comfort)..."
+    sentence = (
+        f"Over the last 30 seconds, {LABELS[name].lower()} was **{trend_word}**, "
+        f"varying within **{r:.2f}{unit}** (Δ={d:+.2f}{unit}). "
+        f"Current: **{current_val:.2f}{unit}** ({tag}), {band_word} "
+        f"({target_low:.2f}–{target_high:.2f}{unit})."
+        f"{forecast_clause}"
+    )
+
+    return lvl, sentence
+    # ===== Narrative summary for last 30 seconds =====
+    end_ts = df.index[-1]
+    last30 = df[df.index >= (end_ts - pd.Timedelta(seconds=30))]
+
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.subheader("Narrative Summary (Last 30 seconds)")
+
+    if len(last30) < 2:
+        st.info("Not enough samples in the last 30 seconds yet. Keep the app running a bit longer.")
+    else:
+        # Build per-metric narrative
+        narratives = []
+        severities = {"ok": 0, "warm": 1, "cold": 1, "hot": 2}
+
+        # targets for each metric
+        targets = {
+            "temp": (ideal_min_t, ideal_max_t, margin_t, "°C"),
+            "humidity": (low_h, high_h, margin_h, "%"),
+            "soil": (low_s, high_s, margin_s, "%"),
+            "ph": (low_p, high_p, margin_p, ""),
+        }
+
+        worst_lvl = "ok"
+        worst_name = None
+
+        for name in FEATURES:
+            low, high, m, unit = targets[name]
+            curv = float(last[name])
+            pv = float(pred_map[name]) if pred_map and name in pred_map else None
+
+            lvl, sent = describe_last_window(
+                name=name,
+                w=last30[name],
+                current_val=curv,
+                pred_val=pv,
+                target_low=low,
+                target_high=high,
+                margin=m,
+                unit=unit
+            )
+            narratives.append((lvl, name, sent))
+
+            if severities[lvl] > severities[worst_lvl]:
+                worst_lvl = lvl
+                worst_name = name
+
+        # Render narratives
+        for lvl, name, sent in narratives:
+            st.markdown(
+                f"""
+<div class="section">
+  <div class="tag level-{lvl}">● {LABELS[name]}</div>
+  <p style="margin-top:10px;">{sent}</p>
+</div>
+""",
+                unsafe_allow_html=True
+            )
+
+        # Overall conclusion line
+        if worst_name is None:
+            overall = "Overall, conditions were stable over the last 30 seconds with no major deviations."
+        else:
+            overall = (
+                f"Overall, the most notable issue in the last 30 seconds is **{LABELS[worst_name]}**, "
+                f"which is currently flagged as **{worst_lvl.upper()}**. "
+                f"Please check the recommended actions in the insight sections below."
+            )
+
+        st.markdown(
+            f"""
+<div class="section">
+  <div class="tag level-{worst_lvl}">● Overall Conclusion</div>
+  <h3 style="margin-top:10px;">Conclusion</h3>
+  <p>{overall}</p>
+</div>
+""",
+            unsafe_allow_html=True
+        )
+
 
