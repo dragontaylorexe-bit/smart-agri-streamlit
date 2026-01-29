@@ -10,6 +10,7 @@ import requests
 import joblib
 import streamlit as st
 
+
 # =======================
 # BRANDING
 # =======================
@@ -32,8 +33,9 @@ LOGO_PATH = ASSETS / "vinuni_logo.png"
 HERO_CANDIDATES = [ASSETS / "hero.jpg", ASSETS / "hero.jpeg", ASSETS / "hero.png", ASSETS / "hero.webp"]
 REPORT_PATH = ASSETS / "report.pdf"
 
-MEDIA_DIR = ASSETS / "media"
-DIAGRAM_DIR = ASSETS / "diagrams"
+EVIDENCE_DIR = ASSETS / "media"      # rover/team/testing photos
+DIAGRAM_DIR  = ASSETS / "diagrams"   # flow/architecture/wiring images
+
 
 # =======================
 # LIVE SYSTEM
@@ -46,12 +48,13 @@ if not BLYNK_TOKEN:
 BASE_URL = "https://blynk.cloud/external/api/get"
 MODEL_PATH = Path("models/model_30s.pkl")
 
+# ✅ FIXED ORDER (do NOT change)
 FEATURES = ["temp", "humidity", "soil", "ph"]
 PINS = {"temp": "V0", "soil": "V1", "ph": "V2", "humidity": "V3"}
 
 LABELS = {"temp": "Temperature", "humidity": "Humidity", "soil": "Soil Moisture", "ph": "pH"}
-ICONS = {"temp": "🌡️", "humidity": "💧", "soil": "🌱", "ph": "🧪"}
-UNITS = {"temp": "°C", "humidity": "%", "soil": "%", "ph": ""}
+ICONS  = {"temp": "🌡️", "humidity": "💧", "soil": "🌱", "ph": "🧪"}
+UNITS  = {"temp": "°C", "humidity": "%", "soil": "%", "ph": ""}
 
 RANGE = {
     "temp": (0.0, 60.0),
@@ -60,23 +63,31 @@ RANGE = {
     "ph": (0.0, 14.0),
 }
 
-# "No clear change" thresholds (tune if needed)
+# "No clear change" thresholds
 NOISE = {
-    "temp": {"range": 0.6, "delta": 0.4},      # °C
-    "humidity": {"range": 3.5, "delta": 2.0},  # %RH
-    "soil": {"range": 2.5, "delta": 1.5},      # %
-    "ph": {"range": 0.12, "delta": 0.08},      # pH
+    "temp": {"range": 0.6, "delta": 0.4},
+    "humidity": {"range": 3.5, "delta": 2.0},
+    "soil": {"range": 2.5, "delta": 1.5},
+    "ph": {"range": 0.12, "delta": 0.08},
 }
 
+
 # =======================
-# PAGE CONFIG
+# PAGE CONFIG (MOBILE FRIENDLY)
 # =======================
 st.set_page_config(
     page_title="Smart Agri-Tech Mobility System (VinUniversity)",
     page_icon="🌱",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",
 )
+
+# Force viewport for mobile
+st.markdown(
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">',
+    unsafe_allow_html=True
+)
+
 
 # =======================
 # UTIL: files & images
@@ -93,7 +104,7 @@ def guess_mime(path: Path) -> str:
         ".png": "image/png",
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
-        ".webp": "image/webp"
+        ".webp": "image/webp",
     }.get(ext, "image/jpeg")
 
 def file_to_b64(path: Path):
@@ -111,12 +122,13 @@ HERO_PATH = first_existing(HERO_CANDIDATES)
 hero_b64, hero_mime = file_to_b64(HERO_PATH) if HERO_PATH else (None, None)
 logo_b64, logo_mime = file_to_b64(LOGO_PATH)
 
+
 # =======================
-# UI (CSS)
+# VIBRANT CSS + MOBILE
 # =======================
-CSS = f"""
+CSS = """
 <style>
-:root {{
+:root {
   --accent1: #7C3AED;
   --accent2: #06B6D4;
   --accent3: #22C55E;
@@ -124,213 +136,163 @@ CSS = f"""
   --ink: rgba(10, 10, 10, 0.92);
   --card: rgba(255,255,255,0.78);
   --border: rgba(0,0,0,0.08);
-}}
+}
+html, body { -webkit-text-size-adjust: 100%; }
 
-.delta-up   {{ color: #EF4444; font-weight: 950; }}
-.delta-down {{ color: #22C55E; font-weight: 950; }}
-.delta-flat {{ color: rgba(0,0,0,0.55); font-weight: 900; }}
+.delta-up   { color: #EF4444; font-weight: 950; }
+.delta-down { color: #22C55E; font-weight: 950; }
+.delta-flat { color: rgba(0,0,0,0.55); font-weight: 900; }
 
-.trend-up   {{ background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.22); }}
-.trend-down {{ background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.22); }}
-.trend-flat {{ background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.10); }}
+.trend-up   { background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.22); }
+.trend-down { background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.22); }
+.trend-flat { background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.10); }
 
-.kpi-line {{
-  padding: 10px 12px;
-  border-radius: 14px;
-  margin-top: 10px;
-}}
+.kpi-line { padding: 10px 12px; border-radius: 14px; margin-top: 10px; }
 
-.stApp {{
+.stApp {
   background:
     radial-gradient(1200px 800px at 12% 0%, rgba(124,58,237,0.20), transparent 55%),
     radial-gradient(1200px 800px at 88% 0%, rgba(6,182,212,0.18), transparent 55%),
     radial-gradient(1200px 800px at 50% 100%, rgba(34,197,94,0.12), transparent 55%);
-}}
+}
+header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-header[data-testid="stHeader"] {{ background: rgba(0,0,0,0); }}
-
-.hero {{
+.hero {
   border-radius: 28px;
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: 0 22px 60px rgba(0,0,0,0.12);
   position: relative;
-}}
-.hero-img {{
+}
+.hero-img {
   position:absolute; inset:0;
   width:100%; height:100%;
   object-fit: cover;
   transform: scale(1.05);
   filter: saturate(1.05) contrast(1.02);
-}}
-.hero-fallback {{
+}
+.hero-fallback {
   position:absolute; inset:0;
   background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(6,182,212,0.85), rgba(34,197,94,0.70));
-}}
-.hero-overlay {{
+}
+.hero-overlay {
   position:absolute; inset:0;
   background: linear-gradient(120deg, rgba(0,0,0,0.62), rgba(0,0,0,0.24));
-}}
-.hero-inner {{
-  position: relative;
-  padding: 26px 26px 22px 26px;
-}}
-.hero-content {{
-  display:flex; gap:18px;
-  justify-content: space-between;
-  align-items:flex-start;
-}}
-.brand {{
-  display:flex; gap:14px; align-items:center;
-}}
-.brand-logo {{
+}
+.hero-inner { position: relative; padding: 26px 26px 22px 26px; }
+.hero-content { display:flex; gap:18px; justify-content: space-between; align-items:flex-start; }
+.brand { display:flex; gap:14px; align-items:center; }
+.brand-logo {
   width:68px; height:68px;
   border-radius:18px;
   background: rgba(255,255,255,0.92);
   border: 1px solid rgba(255,255,255,0.22);
   padding: 10px;
   object-fit: contain;
-}}
-.brand-title {{
+}
+.brand-title {
   color: rgba(255,255,255,0.96);
   font-size: 30px;
   font-weight: 950;
   line-height: 1.12;
   margin:0;
-}}
-.brand-sub {{
+}
+.brand-sub {
   color: rgba(255,255,255,0.84);
   font-size: 13px;
   line-height: 1.48;
   margin-top: 9px;
-}}
-
-.badges {{
-  display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
-}}
-.badge {{
-  display:inline-flex;
-  align-items:center; gap:8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 950;
+}
+.badges { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.badge {
+  display:inline-flex; align-items:center; gap:8px;
+  padding: 8px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 950;
   border: 1px solid rgba(255,255,255,0.22);
   background: rgba(255,255,255,0.14);
   color: rgba(255,255,255,0.94);
-}}
+}
 
-.pill {{
-  display:inline-block;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-weight: 950;
-  font-size: 12px;
+.pill {
+  display:inline-block; padding: 8px 12px; border-radius: 999px;
+  font-weight: 950; font-size: 12px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.76);
-}}
-.pill.ok {{ color:#15803D; }}
-.pill.bad {{ color:#B91C1C; }}
+}
+.pill.ok { color:#15803D; }
+.pill.bad { color:#B91C1C; }
 
-.section {{
+.section {
   padding: 16px 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
   background: var(--card);
   backdrop-filter: blur(12px);
   box-shadow: 0 12px 34px rgba(0,0,0,0.07);
-}}
+}
 
-.grid4 {{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}}
-@media (max-width: 1100px) {{
-  .grid4 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-}}
+.grid4 { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1100px) { .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-.card {{
+.card {
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.82);
   backdrop-filter: blur(12px);
   box-shadow: 0 14px 40px rgba(0,0,0,0.08);
-}}
-.card-top {{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap: 10px;
-}}
-.card-name {{ font-weight: 950; opacity: 0.94; }}
-.card-value {{ font-size: 32px; font-weight: 950; margin-top: 6px; }}
-.card-delta {{ font-weight: 900; margin-top: 6px; font-size: 13px; }}
-.card-hint {{
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(0,0,0,0.56);
-  line-height: 1.35;
-}}
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.card:hover { transform: translateY(-3px); box-shadow: 0 22px 60px rgba(0,0,0,0.12); }
+.card-top { display:flex; justify-content:space-between; align-items:center; gap: 10px; }
+.card-name { font-weight: 950; opacity: 0.94; }
+.card-value { font-size: 32px; font-weight: 950; margin-top: 6px; }
+.card-delta { font-weight: 900; margin-top: 6px; font-size: 13px; }
+.card-hint { margin-top: 6px; font-size: 12px; color: rgba(0,0,0,0.56); line-height: 1.35; }
 
-.tag {{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 950;
+.tag {
+  display:inline-flex; align-items:center; gap:6px;
+  padding: 6px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 950;
   border: 1px solid var(--border);
-}}
-.level-ok   {{ background: rgba(34,197,94,0.16);  color:#15803D; }}
-.level-warm {{ background: rgba(249,115,22,0.16); color:#9A3412; }}
-.level-hot  {{ background: rgba(239,68,68,0.16);  color:#B91C1C; }}
-.level-cold {{ background: rgba(6,182,212,0.16);  color:#0E7490; }}
+}
+.level-ok   { background: rgba(34,197,94,0.16);  color:#15803D; }
+.level-warm { background: rgba(249,115,22,0.16); color:#9A3412; }
+.level-hot  { background: rgba(239,68,68,0.16);  color:#B91C1C; }
+.level-cold { background: rgba(6,182,212,0.16);  color:#0E7490; }
 
-.media-card {{
-  border-radius: 18px;
-  overflow:hidden;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.86);
-  box-shadow: 0 12px 34px rgba(0,0,0,0.08);
-}}
-.media-card img {{
-  width:100%;
-  max-height: 420px;
-  object-fit: cover;
-  display:block;
-}}
-.media-cap {{
-  padding: 10px 12px;
-  color: rgba(0,0,0,0.70);
-  font-weight: 800;
-  font-size: 12px;
-}}
+.media-card { border-radius: 18px; overflow:hidden; border: 1px solid var(--border); background: rgba(255,255,255,0.86); box-shadow: 0 12px 34px rgba(0,0,0,0.08); }
+.media-card img { width:100%; max-height: 420px; object-fit: cover; display:block; }
+.media-cap { padding: 10px 12px; color: rgba(0,0,0,0.70); font-weight: 800; font-size: 12px; }
 
-.diagram-img {{
-  width:100%;
-  max-height: 520px;
-  object-fit: contain;
-  display:block;
-  background: rgba(0,0,0,0.03);
-}}
+.diagram-img { width:100%; max-height: 520px; object-fit: contain; display:block; background: rgba(0,0,0,0.03); }
 
-.footer {{
-  margin-top: 18px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.74);
-  color: rgba(0,0,0,0.62);
-  font-size: 12px;
-}}
+.footer { margin-top: 18px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.74); color: rgba(0,0,0,0.62); font-size: 12px; }
+hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
 
-hr {{ border:none; border-top:1px solid var(--border); margin:16px 0; }}
+/* MOBILE */
+@media (max-width: 768px) {
+  .hero-inner { padding: 18px 16px; }
+  .hero-content { flex-direction: column; gap: 12px; }
+  .badges { justify-content: flex-start; }
+  .brand-logo { width:54px; height:54px; border-radius:16px; }
+  .brand-title { font-size: 20px; line-height: 1.15; }
+  .brand-sub { font-size: 12px; }
+  .card-value { font-size: 26px; }
+  .card { padding: 12px 12px; }
+  .section { padding: 14px 14px; }
+  .grid4 { grid-template-columns: 1fr !important; }
+  .diagram-img { max-height: 320px; }
+  .media-card img { max-height: 260px; }
+}
+@media (max-width: 420px) {
+  .brand-title { font-size: 18px; }
+  .badge { font-size: 11px; padding: 7px 10px; }
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+
 
 # =======================
 # CORE HELPERS
@@ -356,6 +318,7 @@ def get_value(pin: str) -> float:
     return float(r.text.strip())
 
 def read_sensors() -> dict:
+    # Read strictly in FEATURES order to avoid swapping
     vals = {}
     for name in FEATURES:
         vals[name] = get_value(PINS[name])
@@ -451,7 +414,7 @@ def pdf_embed(path: Path, height=900):
         unsafe_allow_html=True
     )
 
-# --- highlight helpers for narrative ---
+# Highlight helpers
 def delta_class(delta: float, thr: float) -> str:
     if abs(delta) <= thr:
         return "delta-flat"
@@ -467,6 +430,12 @@ def arrow(delta: float, thr: float) -> str:
         return "→"
     return "↑" if delta > 0 else "↓"
 
+def colored_delta_html(name: str, d: float, context: str) -> str:
+    thr = NOISE[name]["delta"]
+    cls = delta_class(d, thr)
+    sym = arrow(d, thr)
+    return f"{context} <span class='{cls}'>Δ {delta_fmt(name, d)} {sym}</span>"
+
 def describe_last_window(
     name: str,
     w: pd.Series,
@@ -477,9 +446,6 @@ def describe_last_window(
     margin: float,
     unit: str
 ) -> tuple[str, str]:
-    """
-    Returns: (level, html_block)
-    """
     w = w.dropna()
     if len(w) < 2:
         return "cold", f"<p>Not enough samples in the last 30 seconds to analyze {LABELS[name].lower()}.</p>"
@@ -501,7 +467,7 @@ def describe_last_window(
     else:
         trend_word = "decreasing"
 
-    # status level + tag
+    # level
     if name == "temp":
         lvl, tag = level_temp(current_val, target_low, target_high, margin)
     elif name == "humidity":
@@ -514,8 +480,8 @@ def describe_last_window(
     in_band = (target_low <= current_val <= target_high)
     band_word = "within the target range" if in_band else "outside the target range"
 
-    d_cls = delta_class(d, delta_thr)
     box_cls = trend_box_class(d, delta_thr)
+    d_cls = delta_class(d, delta_thr)
     sym = arrow(d, delta_thr)
 
     forecast_clause = ""
@@ -538,20 +504,14 @@ def describe_last_window(
 """
     return lvl, html
 
-# =======================
-# SIDEBAR NAV + THRESHOLDS
-# =======================
-st.sidebar.title("📌 Navigation")
-page = st.sidebar.selectbox(
-    "Go to",
-    ["Home", "Live Dashboard", "Deep Analysis", "Architecture", "Media", "Report (PDF)"]
-)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Live Controls")
+# =======================
+# SIDEBAR (controls only)
+# =======================
+st.sidebar.title("⚙️ Controls")
 auto_refresh = st.sidebar.toggle("Auto refresh (Live)", value=True)
-refresh_sec = st.sidebar.slider("Refresh seconds", 2, 15, 5, 1)
-history_len = st.sidebar.slider("Trend history points", 30, 600, 200, 10)
+refresh_sec  = st.sidebar.slider("Refresh seconds", 2, 15, 5, 1)
+history_len  = st.sidebar.slider("Trend history points", 30, 600, 200, 10)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Targets / Thresholds")
@@ -568,11 +528,13 @@ margin_s = st.sidebar.slider("Soil margin (%)", 2.0, 30.0, 10.0, 1.0)
 low_p, high_p = st.sidebar.slider("pH neutral-ish range", 3.0, 11.0, (6.0, 7.5), 0.1)
 margin_p = st.sidebar.slider("pH margin", 0.1, 2.0, 0.5, 0.1)
 
-st.sidebar.markdown("---")
 if not HERO_PATH:
     st.sidebar.warning("Hero image missing. Add one of: assets/hero.jpg / hero.png / hero.webp")
 if not LOGO_PATH.exists():
     st.sidebar.warning("Logo missing: assets/vinuni_logo.png")
+if not MODEL_PATH.exists():
+    st.sidebar.warning("Model missing: models/model_30s.pkl")
+
 
 # =======================
 # STATE + MODEL
@@ -589,6 +551,7 @@ if "history" not in st.session_state:
 if st.session_state.history.maxlen != history_len:
     st.session_state.history = deque(list(st.session_state.history)[-history_len:], maxlen=history_len)
 
+
 # =======================
 # HERO
 # =======================
@@ -598,7 +561,6 @@ logo_html = (
     if logo_b64 else
     "<div class='brand-logo' style='display:flex;align-items:center;justify-content:center;font-weight:950;'>VU</div>"
 )
-
 hero_bg = f"<img class='hero-img' src='data:{hero_mime};base64,{hero_b64}' />" if hero_b64 else "<div class='hero-fallback'></div>"
 
 st.markdown(
@@ -637,13 +599,22 @@ st.markdown(
 )
 st.write("")
 
+
+# =======================
+# TOP NAV (best for mobile)
+# =======================
+NAV_ITEMS = ["Home", "Live", "Deep Analysis", "Architecture", "Evidence", "Report"]
+page = st.radio("Navigation", NAV_ITEMS, horizontal=True, label_visibility="collapsed")
+st.write("")
+
+
 # =======================
 # LIVE READ ONCE
 # =======================
 def read_live_once():
     try:
-        cur = read_sensors()
-        return True, None, cur
+        vals = read_sensors()
+        return True, None, vals
     except Exception as e:
         return False, str(e), {n: np.nan for n in FEATURES}
 
@@ -663,6 +634,7 @@ if len(st.session_state.pred_buffer) == WINDOW_STEPS and status_ok:
     X = np.array(st.session_state.pred_buffer).reshape(1, -1)
     pred = model.predict(X)[0]
     pred_map = {FEATURES[i]: clamp(FEATURES[i], float(pred[i])) for i in range(len(FEATURES))}
+
 
 # =======================
 # PAGES
@@ -694,13 +666,13 @@ def page_home():
         st.markdown(
             """
 <div class="section">
-  <div class="tag level-warm">● For Reviewers</div>
+  <div class="tag level-warm">● Quick Guide</div>
   <h3 style="margin-top:10px;">What to explore</h3>
   <ul>
-    <li><b>Live Dashboard</b>: real-time values + 30s prediction</li>
-    <li><b>Deep Analysis</b>: 30s narrative summary + detailed interpretation</li>
-    <li><b>Architecture</b>: system pipeline + diagrams</li>
-    <li><b>Report</b>: full PDF embedded for verification</li>
+    <li><b>Live</b>: real-time values + 30s prediction</li>
+    <li><b>Deep Analysis</b>: 30s narrative + insights</li>
+    <li><b>Architecture</b>: pipeline + diagrams</li>
+    <li><b>Report</b>: embedded PDF for full documentation</li>
   </ul>
 </div>
 """,
@@ -711,7 +683,27 @@ def page_home():
     st.subheader("Team")
     st.dataframe(pd.DataFrame(AUTHORS, columns=["Name", "Student ID", "Role"]), use_container_width=True)
 
-def page_live_dashboard():
+    photos = list_images(EVIDENCE_DIR)
+    if photos:
+        st.markdown("<hr/>", unsafe_allow_html=True)
+        st.subheader("Project Highlights")
+        cols = st.columns(3)
+        for i, p in enumerate(photos[:3]):
+            b64, mime = file_to_b64(p)
+            if not b64:
+                continue
+            with cols[i % 3]:
+                st.markdown(
+                    f"""
+<div class="media-card">
+  <img src="data:{mime};base64,{b64}" />
+  <div class="media-cap">{p.stem.replace("_"," ").title()}</div>
+</div>
+""",
+                    unsafe_allow_html=True
+                )
+
+def page_live():
     st.subheader("Live Dashboard: Current + AI Forecast (~30s)")
 
     prev = st.session_state.history[-2] if len(st.session_state.history) >= 2 else None
@@ -741,7 +733,7 @@ def page_live_dashboard():
         dtext = None
         if prev is not None and np.isfinite(prev.get(name, np.nan)):
             d = float(v) - float(prev[name])
-            dtext = f"Δ {delta_fmt(name, d)} vs last sample"
+            dtext = colored_delta_html(name, d, "vs last sample:")
 
         st.markdown(card_html(ICONS[name], LABELS[name], fmt(name, float(v)), lvl, tag, dtext, hint), unsafe_allow_html=True)
 
@@ -766,26 +758,27 @@ def page_live_dashboard():
             else:
                 lvl, tag = level_ph(pv, low_p, high_p, margin_p)
 
-            dtext = f"Δ {delta_fmt(name, pv - cv)} (pred - now)" if cv is not None else None
+            dtext = colored_delta_html(name, (pv - cv), "(pred - now):") if cv is not None else None
             st.markdown(card_html(ICONS[name], f"{LABELS[name]} →", fmt(name, pv), lvl, tag, dtext, "Forecast horizon: ~30s"),
                         unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<hr/>", unsafe_allow_html=True)
+
     st.subheader("Trends")
     if len(st.session_state.history) >= 5:
         df = pd.DataFrame(list(st.session_state.history)).set_index("ts")
         a, b = st.columns(2)
         with a:
             st.caption("Temperature & Humidity")
-            st.line_chart(df[["temp", "humidity"]].tail(80))
+            st.line_chart(df[["temp", "humidity"]].tail(120))
         with b:
             st.caption("Soil Moisture & pH")
-            st.line_chart(df[["soil", "ph"]].tail(80))
+            st.line_chart(df[["soil", "ph"]].tail(120))
     else:
         st.info("Not enough data points yet. Keep the dashboard running.")
 
-def page_deep_analysis():
+def page_deep():
     st.subheader("Deep Analysis (Detailed Interpretation)")
 
     if len(st.session_state.history) < 5:
@@ -797,7 +790,6 @@ def page_deep_analysis():
     prev = df.iloc[-2] if len(df) >= 2 else last
     window = df.tail(min(20, len(df)))
 
-    # ===== Narrative summary (Last 30 seconds) + highlight =====
     end_ts = df.index[-1]
     last30 = df[df.index >= (end_ts - pd.Timedelta(seconds=30))]
 
@@ -847,13 +839,11 @@ def page_deep_analysis():
                 unsafe_allow_html=True
             )
 
-        if worst_name is None:
-            overall = "Overall, conditions were stable over the last 30 seconds with no major deviations."
-        else:
-            overall = (
-                f"Overall, the most notable issue in the last 30 seconds is <b>{LABELS[worst_name]}</b>, "
-                f"currently flagged as <b>{worst_lvl.upper()}</b>. Please check the recommended actions below."
-            )
+        overall = (
+            "Overall, conditions were stable over the last 30 seconds with no major deviations."
+            if worst_name is None else
+            f"Overall, the most notable issue is <b>{LABELS[worst_name]}</b>, currently flagged as <b>{worst_lvl.upper()}</b>."
+        )
 
         st.markdown(
             f"""
@@ -866,7 +856,6 @@ def page_deep_analysis():
             unsafe_allow_html=True
         )
 
-    # helper: trend slope approx (per sample)
     def slope(series):
         if len(series) < 3:
             return 0.0
@@ -883,13 +872,11 @@ def page_deep_analysis():
     t_slope = slope(window["temp"])
     t_lvl, t_tag = level_temp(t, ideal_min_t, ideal_max_t, margin_t)
     t_summary = f"Current temperature is {t:.2f}°C ({t_tag}). Δ={t_delta:+.2f}°C vs previous. Trend slope≈{t_slope:+.3f} per sample."
-    t_actions = []
+    t_actions = ["Maintain current settings", "Monitor trend for sudden changes"]
     if t_lvl in ["hot", "warm"]:
-        t_actions += ["Increase ventilation/fan", "Add shading if available", "Check soil moisture; mist lightly if dry"]
+        t_actions = ["Increase ventilation/fan", "Add shading if available", "Check soil moisture; mist lightly if dry"]
     elif t_lvl == "cold":
-        t_actions += ["Reduce drafts", "Water during warmer periods", "Check if crop requires heating"]
-    else:
-        t_actions += ["Maintain current settings", "Monitor trend for sudden changes"]
+        t_actions = ["Reduce drafts", "Water during warmer periods", "Check if crop requires heating"]
     if pred_map:
         t_actions += [f"30s forecast: {float(pred_map['temp']):.2f}°C → prepare adjustment if crossing thresholds."]
     insights.append(("Temperature", t_lvl, t_summary, t_actions))
@@ -900,13 +887,11 @@ def page_deep_analysis():
     h_slope = slope(window["humidity"])
     h_lvl, h_tag = level_humidity(h, low_h, high_h, margin_h)
     h_summary = f"Current humidity is {h:.2f}% ({h_tag}). Δ={h_delta:+.2f}% vs previous. Trend slope≈{h_slope:+.3f} per sample."
-    h_actions = []
+    h_actions = ["Keep stable environment", "Watch for rapid drops (door open / wind)"]
     if h_lvl in ["hot", "warm"]:
-        h_actions += ["Increase airflow to reduce condensation risk", "Inspect for wet surfaces / mold risk", "Avoid over-watering"]
+        h_actions = ["Increase airflow to reduce condensation risk", "Inspect for wet surfaces / mold risk", "Avoid over-watering"]
     elif h_lvl == "cold":
-        h_actions += ["Consider misting (crop-dependent)", "Reduce excessive ventilation if drying too fast"]
-    else:
-        h_actions += ["Keep stable environment", "Watch for rapid drops (door open / wind)"]
+        h_actions = ["Consider misting (crop-dependent)", "Reduce excessive ventilation if drying too fast"]
     if pred_map:
         h_actions += [f"30s forecast: {float(pred_map['humidity']):.2f}%."]
     insights.append(("Humidity", h_lvl, h_summary, h_actions))
@@ -917,11 +902,9 @@ def page_deep_analysis():
     s_slope = slope(window["soil"])
     s_lvl, s_tag = level_soil(s, low_s, high_s, margin_s)
     s_summary = f"Soil moisture is {s:.2f}% ({s_tag}). Δ={s_delta:+.2f}% vs previous. Trend slope≈{s_slope:+.3f} per sample."
-    s_actions = []
+    s_actions = ["Reduce watering", "Improve drainage/airflow", "Watch pH drift due to excess water"]
     if s_lvl in ["hot", "warm"]:
-        s_actions += ["Water/irrigate gradually", "Re-check after 1–2 minutes", "Avoid sudden flooding to prevent root shock"]
-    else:
-        s_actions += ["Reduce watering", "Improve drainage/airflow", "Watch pH drift due to excess water"]
+        s_actions = ["Water/irrigate gradually", "Re-check after 1–2 minutes", "Avoid sudden flooding to prevent root shock"]
     if pred_map:
         s_actions += [f"30s forecast: {float(pred_map['soil']):.2f}%."]
     insights.append(("Soil Moisture", s_lvl, s_summary, s_actions))
@@ -932,13 +915,11 @@ def page_deep_analysis():
     p_slope = slope(window["ph"])
     p_lvl, p_tag = level_ph(p, low_p, high_p, margin_p)
     p_summary = f"pH is {p:.2f} ({p_tag}). Δ={p_delta:+.2f} vs previous. Trend slope≈{p_slope:+.3f} per sample."
-    p_actions = []
+    p_actions = ["Within target band; keep monitoring", "Ensure probe is stable (warm-up ~30s)"]
     if p_lvl == "warm":
-        p_actions += ["If persistent: consider liming (context-dependent)", "Recalibrate probe / ensure proper warm-up", "Compare with reference buffer if available"]
+        p_actions = ["If persistent: consider liming (context-dependent)", "Recalibrate probe / ensure warm-up", "Compare with reference buffer if available"]
     elif p_lvl == "cold":
-        p_actions += ["If persistent: consider acidifying amendments (context-dependent)", "Re-check after probe stabilization", "Avoid over-correction"]
-    else:
-        p_actions += ["Within target band; keep monitoring", "Ensure probe is stable (warm-up ~30s)"]
+        p_actions = ["If persistent: consider acidifying amendments (context-dependent)", "Re-check after probe stabilization", "Avoid over-correction"]
     if pred_map:
         p_actions += [f"30s forecast: {float(pred_map['ph']):.2f}."]
     insights.append(("pH", p_lvl, p_summary, p_actions))
@@ -947,10 +928,10 @@ def page_deep_analysis():
     c1, c2 = st.columns(2)
     with c1:
         st.caption("Temperature & Humidity")
-        st.line_chart(df[["temp", "humidity"]].tail(80))
+        st.line_chart(df[["temp", "humidity"]].tail(120))
     with c2:
         st.caption("Soil Moisture & pH")
-        st.line_chart(df[["soil", "ph"]].tail(80))
+        st.line_chart(df[["soil", "ph"]].tail(120))
 
     st.markdown("<hr/>", unsafe_allow_html=True)
     for name, lvl, summary, actions in insights:
@@ -983,65 +964,50 @@ def page_architecture():
     st.write("")
     render_diagram(DIAGRAM_DIR / "wiring.png", "Wiring / Hardware Integration")
 
-def page_media():
-    st.subheader("Media (Project Photos & Diagrams)")
-    st.markdown(
-        """
-<div class="section">
-  <div class="tag level-ok">● Media</div>
-  <h3 style="margin-top:10px;">Project visuals</h3>
-  <p>Put your best photos in <b>assets/media/</b> and your diagrams in <b>assets/diagrams/</b>.</p>
-</div>
-""",
-        unsafe_allow_html=True
-    )
-
-    photos = list_images(MEDIA_DIR)
-    if photos:
-        st.write("")
-        cols = st.columns(3)
-        for i, p in enumerate(photos[:12]):
-            b64, mime = file_to_b64(p)
-            if not b64:
-                continue
-            with cols[i % 3]:
-                st.markdown(
-                    f"""
+def page_evidence():
+    st.subheader("Evidence (Project Photos)")
+    photos = list_images(EVIDENCE_DIR)
+    if not photos:
+        st.info("No images found. Add your photos to assets/media/ (jpg/png/webp).")
+        return
+    cols = st.columns(3)
+    for i, p in enumerate(photos[:15]):
+        b64, mime = file_to_b64(p)
+        if not b64:
+            continue
+        with cols[i % 3]:
+            st.markdown(
+                f"""
 <div class="media-card">
   <img src="data:{mime};base64,{b64}" />
   <div class="media-cap">{p.stem.replace("_"," ").title()}</div>
 </div>
 """,
-                    unsafe_allow_html=True
-                )
-    else:
-        st.info("No photos found. Add images to assets/media/ (jpg/png/webp).")
+                unsafe_allow_html=True
+            )
 
 def page_report():
     st.subheader("Report (PDF)")
     if REPORT_PATH.exists():
-        st.download_button("Download Report (PDF)", REPORT_PATH.read_bytes(),
-                           file_name=REPORT_PATH.name, mime="application/pdf")
+        st.download_button("Download Report (PDF)", REPORT_PATH.read_bytes(), file_name=REPORT_PATH.name, mime="application/pdf")
         st.write("")
         pdf_embed(REPORT_PATH, height=920)
     else:
         st.warning("Report PDF not found. Put it at assets/report.pdf")
 
-# Router
 if page == "Home":
     page_home()
-elif page == "Live Dashboard":
-    page_live_dashboard()
+elif page == "Live":
+    page_live()
 elif page == "Deep Analysis":
-    page_deep_analysis()
+    page_deep()
 elif page == "Architecture":
     page_architecture()
-elif page == "Media":
-    page_media()
-elif page == "Report (PDF)":
+elif page == "Evidence":
+    page_evidence()
+elif page == "Report":
     page_report()
 
-# Footer
 st.markdown(
     f"""
 <div class="footer">
@@ -1052,7 +1018,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Auto refresh only on Live Dashboard or Deep Analysis
-if auto_refresh and page in ["Live Dashboard", "Deep Analysis"]:
+# Auto refresh only where it matters
+if auto_refresh and page in ["Live", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
