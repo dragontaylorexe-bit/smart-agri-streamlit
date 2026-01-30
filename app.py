@@ -3,6 +3,7 @@ from pathlib import Path
 from collections import deque
 from datetime import datetime
 import base64
+from textwrap import dedent
 
 import numpy as np
 import pandas as pd
@@ -33,22 +34,17 @@ LOGO_PATH = ASSETS / "vinuni_logo.png"
 HERO_CANDIDATES = [ASSETS / "hero.jpg", ASSETS / "hero.jpeg", ASSETS / "hero.png", ASSETS / "hero.webp"]
 REPORT_PATH = ASSETS / "report.pdf"
 
-EVIDENCE_DIR = ASSETS / "media"      # rover/team/testing photos
-DIAGRAM_DIR  = ASSETS / "diagrams"   # flow/architecture/wiring images
-
+EVIDENCE_DIR = ASSETS / "media"     # photos
+DIAGRAM_DIR  = ASSETS / "diagrams"  # flow/architecture/wiring
 
 # =======================
 # LIVE SYSTEM
 # =======================
 BLYNK_TOKEN = st.secrets.get("BLYNK_TOKEN", "")
-if not BLYNK_TOKEN:
-    st.error("Missing BLYNK_TOKEN in Streamlit Secrets. Go to Manage app → Settings → Secrets and set BLYNK_TOKEN.")
-    st.stop()
-
 BASE_URL = "https://blynk.cloud/external/api/get"
 MODEL_PATH = Path("models/model_30s.pkl")
 
-# ✅ FIXED ORDER (do NOT change)
+# ✅ Fixed correct order (do NOT change)
 FEATURES = ["temp", "humidity", "soil", "ph"]
 PINS = {"temp": "V0", "soil": "V1", "ph": "V2", "humidity": "V3"}
 
@@ -71,7 +67,6 @@ NOISE = {
     "ph": {"range": 0.12, "delta": 0.08},
 }
 
-
 # =======================
 # PAGE CONFIG (MOBILE FRIENDLY)
 # =======================
@@ -87,7 +82,6 @@ st.markdown(
     '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">',
     unsafe_allow_html=True
 )
-
 
 # =======================
 # UTIL: files & images
@@ -122,20 +116,14 @@ HERO_PATH = first_existing(HERO_CANDIDATES)
 hero_b64, hero_mime = file_to_b64(HERO_PATH) if HERO_PATH else (None, None)
 logo_b64, logo_mime = file_to_b64(LOGO_PATH)
 
-
 # =======================
-# VIBRANT CSS + MOBILE
+# CSS (VIBRANT + READABLE TITLE + MOBILE)
 # =======================
 CSS = """
 <style>
-:root {
-  --accent1: #7C3AED;
-  --accent2: #06B6D4;
-  --accent3: #22C55E;
-  --accent4: #F97316;
-  --ink: rgba(10, 10, 10, 0.92);
-  --card: rgba(255,255,255,0.78);
+:root{
   --border: rgba(0,0,0,0.08);
+  --card: rgba(255,255,255,0.78);
 }
 html, body { -webkit-text-size-adjust: 100%; }
 
@@ -149,7 +137,7 @@ html, body { -webkit-text-size-adjust: 100%; }
 
 .kpi-line { padding: 10px 12px; border-radius: 14px; margin-top: 10px; }
 
-.stApp {
+.stApp{
   background:
     radial-gradient(1200px 800px at 12% 0%, rgba(124,58,237,0.20), transparent 55%),
     radial-gradient(1200px 800px at 88% 0%, rgba(6,182,212,0.18), transparent 55%),
@@ -157,33 +145,34 @@ html, body { -webkit-text-size-adjust: 100%; }
 }
 header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 
-.hero {
+/* HERO */
+.hero{
   border-radius: 28px;
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: 0 22px 60px rgba(0,0,0,0.12);
   position: relative;
 }
-.hero-img {
+.hero-img{
   position:absolute; inset:0;
   width:100%; height:100%;
   object-fit: cover;
   transform: scale(1.05);
   filter: saturate(1.05) contrast(1.02);
 }
-.hero-fallback {
+.hero-fallback{
   position:absolute; inset:0;
   background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(6,182,212,0.85), rgba(34,197,94,0.70));
 }
-.hero-overlay {
+.hero-overlay{
   position:absolute; inset:0;
-  /* DARKER overlay for readability */
+  /* darker for readability */
   background: linear-gradient(120deg, rgba(0,0,0,0.78), rgba(0,0,0,0.28));
 }
-.hero-inner { position: relative; padding: 26px 26px 22px 26px; }
-.hero-content { display:flex; gap:18px; justify-content: space-between; align-items:flex-start; }
-.brand { display:flex; gap:14px; align-items:center; }
-.brand-logo {
+.hero-inner{ position: relative; padding: 26px 26px 22px 26px; }
+.hero-content{ display:flex; gap:18px; justify-content: space-between; align-items:flex-start; }
+.brand{ display:flex; gap:14px; align-items:center; }
+.brand-logo{
   width:68px; height:68px;
   border-radius:18px;
   background: rgba(255,255,255,0.92);
@@ -191,9 +180,19 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
   padding: 10px;
   object-fit: contain;
 }
-.brand-title {
-  color: rgba(255,255,255,0.96);
-  font-size: 30px;
+
+.brand-panel{
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 12px 14px;
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+}
+
+.brand-title{
+  color:#FFFFFF !important;
+  text-shadow: 0 6px 22px rgba(0,0,0,0.60);
+  font-size: 34px;
   font-weight: 950;
   line-height: 1.12;
   margin:0;
@@ -205,15 +204,9 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
   line-height: 1.50;
   margin-top: 10px;
 }
-.brand-panel{
-  background: rgba(0,0,0,0.22);
-  border: 1px solid rgba(255,255,255,0.16);
-  padding: 12px 14px;
-  border-radius: 18px;
-  backdrop-filter: blur(10px);
-}
-.badges { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-.badge {
+
+.badges{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.badge{
   display:inline-flex; align-items:center; gap:8px;
   padding: 8px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 950;
@@ -222,7 +215,8 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
   color: rgba(255,255,255,0.94);
 }
 
-.pill {
+/* pills */
+.pill{
   display:inline-block; padding: 8px 12px; border-radius: 999px;
   font-weight: 950; font-size: 12px;
   border: 1px solid var(--border);
@@ -231,7 +225,8 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 .pill.ok { color:#15803D; }
 .pill.bad { color:#B91C1C; }
 
-.section {
+/* sections & cards */
+.section{
   padding: 16px 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
@@ -239,11 +234,10 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
   backdrop-filter: blur(12px);
   box-shadow: 0 12px 34px rgba(0,0,0,0.07);
 }
+.grid4{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1100px){ .grid4{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-.grid4 { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-@media (max-width: 1100px) { .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
-.card {
+.card{
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid var(--border);
@@ -252,14 +246,14 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
   box-shadow: 0 14px 40px rgba(0,0,0,0.08);
   transition: transform .18s ease, box-shadow .18s ease;
 }
-.card:hover { transform: translateY(-3px); box-shadow: 0 22px 60px rgba(0,0,0,0.12); }
-.card-top { display:flex; justify-content:space-between; align-items:center; gap: 10px; }
-.card-name { font-weight: 950; opacity: 0.94; }
-.card-value { font-size: 32px; font-weight: 950; margin-top: 6px; }
-.card-delta { font-weight: 900; margin-top: 6px; font-size: 13px; }
-.card-hint { margin-top: 6px; font-size: 12px; color: rgba(0,0,0,0.56); line-height: 1.35; }
+.card:hover{ transform: translateY(-3px); box-shadow: 0 22px 60px rgba(0,0,0,0.12); }
+.card-top{ display:flex; justify-content:space-between; align-items:center; gap: 10px; }
+.card-name{ font-weight: 950; opacity: 0.94; }
+.card-value{ font-size: 32px; font-weight: 950; margin-top: 6px; }
+.card-delta{ font-weight: 900; margin-top: 6px; font-size: 13px; }
+.card-hint{ margin-top: 6px; font-size: 12px; color: rgba(0,0,0,0.56); line-height: 1.35; }
 
-.tag {
+.tag{
   display:inline-flex; align-items:center; gap:6px;
   padding: 6px 10px; border-radius: 999px;
   font-size: 12px; font-weight: 950;
@@ -270,38 +264,45 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 .level-hot  { background: rgba(239,68,68,0.16);  color:#B91C1C; }
 .level-cold { background: rgba(6,182,212,0.16);  color:#0E7490; }
 
-.media-card { border-radius: 18px; overflow:hidden; border: 1px solid var(--border); background: rgba(255,255,255,0.86); box-shadow: 0 12px 34px rgba(0,0,0,0.08); }
-.media-card img { width:100%; max-height: 420px; object-fit: cover; display:block; }
-.media-cap { padding: 10px 12px; color: rgba(0,0,0,0.70); font-weight: 800; font-size: 12px; }
+.media-card{ border-radius: 18px; overflow:hidden; border: 1px solid var(--border); background: rgba(255,255,255,0.86); box-shadow: 0 12px 34px rgba(0,0,0,0.08); }
+.media-card img{ width:100%; max-height: 420px; object-fit: cover; display:block; }
+.media-cap{ padding: 10px 12px; color: rgba(0,0,0,0.70); font-weight: 800; font-size: 12px; }
 
-.diagram-img { width:100%; max-height: 520px; object-fit: contain; display:block; background: rgba(0,0,0,0.03); }
+.diagram-img{ width:100%; max-height: 520px; object-fit: contain; display:block; background: rgba(0,0,0,0.03); }
 
-.footer { margin-top: 18px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.74); color: rgba(0,0,0,0.62); font-size: 12px; }
-hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
+.footer{
+  margin-top: 18px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.74);
+  color: rgba(0,0,0,0.62);
+  font-size: 12px;
+}
+hr{ border:none; border-top:1px solid var(--border); margin:16px 0; }
 
 /* MOBILE */
-@media (max-width: 768px) {
-  .hero-inner { padding: 18px 16px; }
-  .hero-content { flex-direction: column; gap: 12px; }
-  .badges { justify-content: flex-start; }
-  .brand-logo { width:54px; height:54px; border-radius:16px; }
-  .brand-title { font-size: 20px; line-height: 1.15; }
-  .brand-sub { font-size: 12px; }
-  .card-value { font-size: 26px; }
-  .card { padding: 12px 12px; }
-  .section { padding: 14px 14px; }
-  .grid4 { grid-template-columns: 1fr !important; }
-  .diagram-img { max-height: 320px; }
-  .media-card img { max-height: 260px; }
+@media (max-width: 768px){
+  .hero-inner{ padding: 18px 16px; }
+  .hero-content{ flex-direction: column; gap: 12px; }
+  .badges{ justify-content: flex-start; }
+  .brand-logo{ width:54px; height:54px; border-radius:16px; }
+  .brand-title{ font-size: 20px; }
+  .brand-sub{ font-size: 12px; }
+  .card-value{ font-size: 26px; }
+  .card{ padding: 12px 12px; }
+  .section{ padding: 14px 14px; }
+  .grid4{ grid-template-columns: 1fr !important; }
+  .diagram-img{ max-height: 320px; }
+  .media-card img{ max-height: 260px; }
 }
-@media (max-width: 420px) {
-  .brand-title { font-size: 18px; }
-  .badge { font-size: 11px; padding: 7px 10px; }
+@media (max-width: 420px){
+  .brand-title{ font-size: 18px; }
+  .badge{ font-size: 11px; padding: 7px 10px; }
 }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
-
 
 # =======================
 # CORE HELPERS
@@ -327,7 +328,7 @@ def get_value(pin: str) -> float:
     return float(r.text.strip())
 
 def read_sensors() -> dict:
-    # Read strictly in FEATURES order to avoid swapping
+    # read strictly in FEATURES order to avoid swapping
     vals = {}
     for name in FEATURES:
         vals[name] = get_value(PINS[name])
@@ -336,7 +337,7 @@ def read_sensors() -> dict:
 @st.cache_resource
 def load_bundle():
     if not MODEL_PATH.exists():
-        raise FileNotFoundError("Model not found. Ensure models/model_30s.pkl is in the repo.")
+        raise FileNotFoundError("Model not found: models/model_30s.pkl")
     bundle = joblib.load(MODEL_PATH)
     if bundle.get("features") != FEATURES:
         raise ValueError(f"FEATURES mismatch. Model={bundle.get('features')} App={FEATURES}")
@@ -423,7 +424,6 @@ def pdf_embed(path: Path, height=900):
         unsafe_allow_html=True
     )
 
-# Highlight helpers
 def delta_class(delta: float, thr: float) -> str:
     if abs(delta) <= thr:
         return "delta-flat"
@@ -476,7 +476,6 @@ def describe_last_window(
     else:
         trend_word = "decreasing"
 
-    # level
     if name == "temp":
         lvl, tag = level_temp(current_val, target_low, target_high, margin)
     elif name == "humidity":
@@ -513,11 +512,11 @@ def describe_last_window(
 """
     return lvl, html
 
-
 # =======================
-# SIDEBAR (controls only)
+# SIDEBAR: controls only
 # =======================
 st.sidebar.title("⚙️ Controls")
+
 auto_refresh = st.sidebar.toggle("Auto refresh (Live)", value=True)
 refresh_sec  = st.sidebar.slider("Refresh seconds", 2, 15, 5, 1)
 history_len  = st.sidebar.slider("Trend history points", 30, 600, 200, 10)
@@ -537,21 +536,31 @@ margin_s = st.sidebar.slider("Soil margin (%)", 2.0, 30.0, 10.0, 1.0)
 low_p, high_p = st.sidebar.slider("pH neutral-ish range", 3.0, 11.0, (6.0, 7.5), 0.1)
 margin_p = st.sidebar.slider("pH margin", 0.1, 2.0, 0.5, 0.1)
 
-if not HERO_PATH:
-    st.sidebar.warning("Hero image missing. Add one of: assets/hero.jpg / hero.png / hero.webp")
+st.sidebar.markdown("---")
+if not BLYNK_TOKEN:
+    st.sidebar.error("Missing BLYNK_TOKEN in secrets.")
 if not LOGO_PATH.exists():
     st.sidebar.warning("Logo missing: assets/vinuni_logo.png")
+if not HERO_PATH:
+    st.sidebar.warning("Hero missing: assets/hero.jpg (or .png/.webp)")
 if not MODEL_PATH.exists():
     st.sidebar.warning("Model missing: models/model_30s.pkl")
 
+# =======================
+# LOAD MODEL (SAFE)
+# =======================
+try:
+    bundle = load_bundle()
+except Exception as e:
+    st.error(f"Model load error: {e}")
+    st.stop()
 
-# =======================
-# STATE + MODEL
-# =======================
-bundle = load_bundle()
 model = bundle["model"]
 WINDOW_STEPS = int(bundle["window_steps"])
 
+# =======================
+# STATE
+# =======================
 if "pred_buffer" not in st.session_state:
     st.session_state.pred_buffer = deque(maxlen=WINDOW_STEPS)
 
@@ -560,41 +569,43 @@ if "history" not in st.session_state:
 if st.session_state.history.maxlen != history_len:
     st.session_state.history = deque(list(st.session_state.history)[-history_len:], maxlen=history_len)
 
-
 # =======================
-# HERO
+# HERO (FIX HTML showing as text)
 # =======================
 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 logo_html = (
     f"<img class='brand-logo' src='data:{logo_mime};base64,{logo_b64}'/>"
     if logo_b64 else
     "<div class='brand-logo' style='display:flex;align-items:center;justify-content:center;font-weight:950;'>VU</div>"
 )
-hero_bg = f"<img class='hero-img' src='data:{hero_mime};base64,{hero_b64}' />" if hero_b64 else "<div class='hero-fallback'></div>"
 
-st.markdown(
-    f"""
+hero_bg = (
+    f"<img class='hero-img' src='data:{hero_mime};base64,{hero_b64}' />"
+    if hero_b64 else
+    "<div class='hero-fallback'></div>"
+)
+
+hero_html = dedent(f"""
 <div class="hero">
   {hero_bg}
   <div class="hero-overlay"></div>
   <div class="hero-inner">
     <div class="hero-content">
-      <div>
-        <div class="brand">
-          {logo_html}
-          <div class="brand-panel">
-              <h1 class="brand-title">{PROJECT_TITLE}</h1>
-              <div class="brand-sub">
-        
-              {TEAM_LINE}<br/>
-              {ORG_LINE}<br/>
-              {ADDRESS_LINE}<br/>
-              {COURSE_LINE}<br/>
-              Last updated: <b>{now_str}</b>
-            </div>
+      <div class="brand">
+        {logo_html}
+        <div class="brand-panel">
+          <h1 class="brand-title">{PROJECT_TITLE}</h1>
+          <div class="brand-sub">
+            {TEAM_LINE}<br/>
+            {ORG_LINE}<br/>
+            {ADDRESS_LINE}<br/>
+            {COURSE_LINE}<br/>
+            Last updated: <b>{now_str}</b>
           </div>
         </div>
       </div>
+
       <div class="badges">
         <div class="badge">🚗 <b>4WD Rover</b></div>
         <div class="badge">📡 <b>IoT Telemetry</b></div>
@@ -604,19 +615,17 @@ st.markdown(
     </div>
   </div>
 </div>
-""",
-    unsafe_allow_html=True
-)
+""").strip()
+
+st.markdown(hero_html, unsafe_allow_html=True)
 st.write("")
 
-
 # =======================
-# TOP NAV (best for mobile)
+# TOP NAV (MOBILE FRIENDLY)
 # =======================
 NAV_ITEMS = ["Home", "Live", "Deep Analysis", "Architecture", "Evidence", "Report"]
 page = st.radio("Navigation", NAV_ITEMS, horizontal=True, label_visibility="collapsed")
 st.write("")
-
 
 # =======================
 # LIVE READ ONCE
@@ -644,7 +653,6 @@ if len(st.session_state.pred_buffer) == WINDOW_STEPS and status_ok:
     X = np.array(st.session_state.pred_buffer).reshape(1, -1)
     pred = model.predict(X)[0]
     pred_map = {FEATURES[i]: clamp(FEATURES[i], float(pred[i])) for i in range(len(FEATURES))}
-
 
 # =======================
 # PAGES
@@ -693,26 +701,6 @@ def page_home():
     st.subheader("Team")
     st.dataframe(pd.DataFrame(AUTHORS, columns=["Name", "Student ID", "Role"]), use_container_width=True)
 
-    photos = list_images(EVIDENCE_DIR)
-    if photos:
-        st.markdown("<hr/>", unsafe_allow_html=True)
-        st.subheader("Project Highlights")
-        cols = st.columns(3)
-        for i, p in enumerate(photos[:3]):
-            b64, mime = file_to_b64(p)
-            if not b64:
-                continue
-            with cols[i % 3]:
-                st.markdown(
-                    f"""
-<div class="media-card">
-  <img src="data:{mime};base64,{b64}" />
-  <div class="media-cap">{p.stem.replace("_"," ").title()}</div>
-</div>
-""",
-                    unsafe_allow_html=True
-                )
-
 def page_live():
     st.subheader("Live Dashboard: Current + AI Forecast (~30s)")
 
@@ -745,7 +733,10 @@ def page_live():
             d = float(v) - float(prev[name])
             dtext = colored_delta_html(name, d, "vs last sample:")
 
-        st.markdown(card_html(ICONS[name], LABELS[name], fmt(name, float(v)), lvl, tag, dtext, hint), unsafe_allow_html=True)
+        st.markdown(
+            card_html(ICONS[name], LABELS[name], fmt(name, float(v)), lvl, tag, dtext, hint),
+            unsafe_allow_html=True
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<hr/>", unsafe_allow_html=True)
@@ -769,8 +760,11 @@ def page_live():
                 lvl, tag = level_ph(pv, low_p, high_p, margin_p)
 
             dtext = colored_delta_html(name, (pv - cv), "(pred - now):") if cv is not None else None
-            st.markdown(card_html(ICONS[name], f"{LABELS[name]} →", fmt(name, pv), lvl, tag, dtext, "Forecast horizon: ~30s"),
-                        unsafe_allow_html=True)
+
+            st.markdown(
+                card_html(ICONS[name], f"{LABELS[name]} →", fmt(name, pv), lvl, tag, dtext, "Forecast horizon: ~30s"),
+                unsafe_allow_html=True
+            )
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<hr/>", unsafe_allow_html=True)
@@ -978,8 +972,9 @@ def page_evidence():
     st.subheader("Evidence (Project Photos)")
     photos = list_images(EVIDENCE_DIR)
     if not photos:
-        st.info("No images found. Add your photos to assets/media/ (jpg/png/webp).")
+        st.info("No images found. Add photos to assets/media/ (jpg/png/webp).")
         return
+
     cols = st.columns(3)
     for i, p in enumerate(photos[:15]):
         b64, mime = file_to_b64(p)
@@ -999,12 +994,18 @@ def page_evidence():
 def page_report():
     st.subheader("Report (PDF)")
     if REPORT_PATH.exists():
-        st.download_button("Download Report (PDF)", REPORT_PATH.read_bytes(), file_name=REPORT_PATH.name, mime="application/pdf")
+        st.download_button(
+            "Download Report (PDF)",
+            REPORT_PATH.read_bytes(),
+            file_name=REPORT_PATH.name,
+            mime="application/pdf"
+        )
         st.write("")
         pdf_embed(REPORT_PATH, height=920)
     else:
         st.warning("Report PDF not found. Put it at assets/report.pdf")
 
+# Router
 if page == "Home":
     page_home()
 elif page == "Live":
@@ -1018,6 +1019,7 @@ elif page == "Evidence":
 elif page == "Report":
     page_report()
 
+# Footer
 st.markdown(
     f"""
 <div class="footer">
@@ -1032,4 +1034,3 @@ st.markdown(
 if auto_refresh and page in ["Live", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
-
