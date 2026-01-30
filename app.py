@@ -177,7 +177,8 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
 }
 .hero-overlay {
   position:absolute; inset:0;
-  background: linear-gradient(120deg, rgba(0,0,0,0.62), rgba(0,0,0,0.24));
+  /* DARKER overlay for readability */
+  background: linear-gradient(120deg, rgba(0,0,0,0.78), rgba(0,0,0,0.28));
 }
 .hero-inner { position: relative; padding: 26px 26px 22px 26px; }
 .hero-content { display:flex; gap:18px; justify-content: space-between; align-items:flex-start; }
@@ -197,11 +198,19 @@ header[data-testid="stHeader"] { background: rgba(0,0,0,0); }
   line-height: 1.12;
   margin:0;
 }
-.brand-sub {
-  color: rgba(255,255,255,0.84);
+.brand-sub{
+  color: rgba(255,255,255,0.92) !important;
+  text-shadow: 0 4px 16px rgba(0,0,0,0.55);
   font-size: 13px;
-  line-height: 1.48;
-  margin-top: 9px;
+  line-height: 1.50;
+  margin-top: 10px;
+}
+.brand-panel{
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 12px 14px;
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
 }
 .badges { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
 .badge {
@@ -573,9 +582,10 @@ st.markdown(
       <div>
         <div class="brand">
           {logo_html}
-          <div>
-            <h1 class="brand-title">{PROJECT_TITLE}</h1>
-            <div class="brand-sub">
+          <div class="brand-panel">
+              <h1 class="brand-title">{PROJECT_TITLE}</h1>
+              <div class="brand-sub">
+        
               {TEAM_LINE}<br/>
               {ORG_LINE}<br/>
               {ADDRESS_LINE}<br/>
@@ -1022,3 +1032,4 @@ st.markdown(
 if auto_refresh and page in ["Live", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
+
