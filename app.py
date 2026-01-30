@@ -586,39 +586,40 @@ hero_bg = (
     "<div class='hero-fallback'></div>"
 )
 
-hero_html = dedent(f"""
-<div class="hero">
-  {hero_bg}
-  <div class="hero-overlay"></div>
-  <div class="hero-inner">
-    <div class="hero-content">
-      <div class="brand">
-        {logo_html}
-        <div class="brand-panel">
-          <h1 class="brand-title">{PROJECT_TITLE}</h1>
-          <div class="brand-sub">
-            {TEAM_LINE}<br/>
-            {ORG_LINE}<br/>
-            {ADDRESS_LINE}<br/>
-            {COURSE_LINE}<br/>
-            Last updated: <b>{now_str}</b>
-          </div>
-        </div>
-      </div>
-
-      <div class="badges">
-        <div class="badge">🚗 <b>4WD Rover</b></div>
-        <div class="badge">📡 <b>IoT Telemetry</b></div>
-        <div class="badge">🧠 <b>AI Forecast</b> (~30s)</div>
-        <div class="badge">🧪 <b>Soil + Air</b> sensing</div>
-      </div>
-    </div>
-  </div>
-</div>
-""").strip()
+# ✅ IMPORTANT: no indentation => prevents Markdown code-block
+hero_html = (
+    f"<div class='hero'>"
+    f"{hero_bg}"
+    f"<div class='hero-overlay'></div>"
+    f"<div class='hero-inner'>"
+      f"<div class='hero-content'>"
+        f"<div class='brand'>"
+          f"{logo_html}"
+          f"<div class='brand-panel'>"
+            f"<h1 class='brand-title'>{PROJECT_TITLE}</h1>"
+            f"<div class='brand-sub'>"
+              f"{TEAM_LINE}<br/>"
+              f"{ORG_LINE}<br/>"
+              f"{ADDRESS_LINE}<br/>"
+              f"{COURSE_LINE}<br/>"
+              f"Last updated: <b>{now_str}</b>"
+            f"</div>"
+          f"</div>"
+        f"</div>"
+        f"<div class='badges'>"
+          f"<div class='badge'>🚗 <b>4WD Rover</b></div>"
+          f"<div class='badge'>📡 <b>IoT Telemetry</b></div>"
+          f"<div class='badge'>🧠 <b>AI Forecast</b> (~30s)</div>"
+          f"<div class='badge'>🧪 <b>Soil + Air</b> sensing</div>"
+        f"</div>"
+      f"</div>"
+    f"</div>"
+    f"</div>"
+)
 
 st.markdown(hero_html, unsafe_allow_html=True)
 st.write("")
+
 
 # =======================
 # TOP NAV (MOBILE FRIENDLY)
@@ -1034,3 +1035,4 @@ st.markdown(
 if auto_refresh and page in ["Live", "Deep Analysis"]:
     time.sleep(refresh_sec)
     st.rerun()
+
